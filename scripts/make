@@ -1,0 +1,76 @@
+#!/bin/bash
+
+set -e
+
+TARGET=$1
+CT_PREFIX_DIR=$2
+
+# packages
+sudo apt-get update
+sudo apt-get install -y --no-install-recommends \
+  automake \
+  bison \
+  bzip2 \
+  ca-certificates \
+  cmake \
+  curl \
+  file \
+  flex \
+  g++ \
+  gawk \
+  gdb \
+  git \
+  gperf \
+  help2man \
+  libncurses-dev \
+  libssl-dev \
+  libtool-bin \
+  make \
+  patch \
+  pkg-config \
+  python3 \
+  rsync \
+  texinfo \
+  unzip \
+  wget \
+  xz-utils
+
+pushd crosstool-ng
+./bootstrap
+./configure --prefix=${HOME}/ct-ng
+make -j`nproc`
+sudo make install
+popd
+
+# build
+rm -rf build
+mkdir -p build
+cp targets/${TARGET}/config build/.config
+printf 'CT_PREFIX_DIR="%s"\n' "$CT_PREFIX_DIR" >> build/.config
+
+# Create (may be root-owned because of sudo)
+sudo mkdir -p "$CT_PREFIX_DIR"
+
+# Give ownership back to the runner user (and group)
+sudo chown -R "$(id -u):$(id -g)" "$CT_PREFIX_DIR"
+sudo chmod -R u+rwX "$CT_PREFIX_DIR"
+
+# Ensure all parents are searchable/executable so the path is traversable
+p="$CT_PREFIX_DIR"
+while [ "$p" != "/" ] && [ -n "$p" ]; do
+  p="$(dirname "$p")"
+  sudo chmod u+x "$p" 2>/dev/null || true
+done
+
+pushd build
+${HOME}/ct-ng/bin/ct-ng olddefconfig
+cat .config
+${HOME}/ct-ng/bin/ct-ng build
+cat build.log
+popd
+
+# tarball
+sudo mv ${CT_PREFIX_DIR}/${TARGET} .
+sudo chown -R root:root ${TARGET}
+sudo tar -cJvf ${TARGET}.tar.xz ${TARGET}
+sudo sha256sum ${TARGET}.tar.xz | awk '{ print $1 }' > ${TARGET}.tar.xz.sha256

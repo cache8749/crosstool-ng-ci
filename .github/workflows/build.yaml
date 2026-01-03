@@ -1,0 +1,43 @@
+name: Build
+on:
+  workflow_dispatch:
+    inputs:
+      CT_PREFIX_DIR:
+        description: "CT_PREFIX_DIR"
+        default: "/opt/ct-ng"
+        required: true
+        type: string
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        target:
+          - x86_64-unknown-linux-musl
+          - x86_64-unknown-linux-gnu
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          submodules: true
+
+      - name: Build
+        shell: bash
+        env:
+          CT_PREFIX_DIR: ${{ inputs.CT_PREFIX_DIR }}
+          TARGET: ${{ matrix.target }}
+        run: |
+          CT_PREFIX_DIR="${CT_PREFIX_DIR%/}"
+          bash ./scripts/make "$TARGET" "$CT_PREFIX_DIR"
+
+      - name: Upload package
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.target }}.tar.xz
+          path: ${{ matrix.target }}.tar.xz
+          if-no-files-found: warn
+          retention-days: 30
