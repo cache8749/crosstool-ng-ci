@@ -46,7 +46,7 @@ popd
 rm -rf build
 mkdir -p build
 cp targets/${TARGET}/config build/.config
-printf 'CT_PREFIX_DIR="%s"\n' "$CT_PREFIX_DIR" >> build/.config
+printf 'CT_PREFIX_DIR="%s/${CT_TARGET}"\n' "$CT_PREFIX_DIR" >> build/.config
 
 # Create (may be root-owned because of sudo)
 sudo mkdir -p "$CT_PREFIX_DIR"
@@ -64,9 +64,7 @@ done
 
 pushd build
 ${HOME}/ct-ng/bin/ct-ng olddefconfig
-cat .config
 ${HOME}/ct-ng/bin/ct-ng build
-cat build.log
 popd
 
 # tarball
